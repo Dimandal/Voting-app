@@ -1,0 +1,78 @@
+version: "3"
+
+services:
+  vote:
+    image: dimandal/voting_app:example-voting-app_vote
+    command: python app.py
+    volumes:
+     - ./vote:/app
+    ports:
+      - 80
+    networks:
+      - front-tier
+      - back-tier
+    environment:
+      - REDIS_HOST=redis
+
+  result:
+    image: dimandal/voting_app:example-voting-app_result
+    command: nodemon server.js
+    volumes:
+      - ./result:/app
+    ports:
+      - "8080:80"
+      - "5858:5858"
+    networks:
+      - front-tier
+      - back-tier
+    environment:
+      - POSTGRES_SERVER=db
+      - POSTGRES_USERNAME=postgres
+      - POSTGRES_PASSWORD=postgres
+
+  worker:
+    image: dimandal/voting_app:example-voting-app_worker
+    depends_on:
+      - "redis"
+    networks:
+      - back-tier
+    environment:
+      - POSTGRES_SERVER=db
+      - POSTGRES_USERNAME=postgres
+      - POSTGRES_PASSWORD=postgres
+      - REDIS_HOST=redis
+
+  redis:
+    image: redis:alpine
+    container_name: redis
+    ports: ["6379"]
+    networks:
+      - back-tier
+
+  db:
+    image: postgres:9.4
+    container_name: db
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    volumes:
+      - "db-data:/var/lib/postgresql/data"
+    networks:
+      - back-tier
+
+  nginx:
+    build:
+      context: ./load_vb
+    depends_on:
+      - vote
+    ports:
+      - "80:80"
+    networks:
+      - front-tier
+
+volumes:
+  db-data:
+
+networks:
+  front-tier:
+  back-tier:
